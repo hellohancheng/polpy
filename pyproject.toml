@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "polpy"
+version = "0.0.0"
+description = "3ML plugin for X-/gamma-ray polarimetry"
+authors = ["Sujay Mate <sujay.mate@gmail.com>", "Merlin Kole <merlin.kole@unh.edu>"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+astropy = "^6.1.0"
+numpy = "^1.26.4"
+scipy = "^1.13.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-cov = "^5.0.0"
+commitizen = "^3.25.0"
+pre-commit = "^3.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
