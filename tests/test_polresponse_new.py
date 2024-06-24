@@ -26,8 +26,8 @@ def test_polresponse(response_file):
     # Print the results if all tests pass
     print("All tests passed!")
 
-# Path to the response file
-response_file = 'POLAR_170114A.prsp'
+# Path to the response file from the data folder
+response_file = 'data/POLAR_170114A.prsp'
 
 # Run the test
 test_polresponse(response_file)
