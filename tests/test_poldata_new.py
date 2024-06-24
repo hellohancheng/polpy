@@ -46,9 +46,9 @@ def test_poldata(polevents_file, polrsp_file, reference_time=0.):
     # Print the results if all tests pass
     print("All tests passed!")
 
-# Paths to the event and polar response files
-polevents_file = 'POLAR_170114A.pevt'
-polrsp_file = 'POLAR_170114A.prsp'
+# Paths to the event and polar response files in the data folder
+polevents_file = 'data/POLAR_170114A.pevt'
+polrsp_file = 'data/POLAR_170114A.prsp'
 
 # Run the test
 test_poldata(polevents_file, polrsp_file)
