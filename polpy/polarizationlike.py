@@ -6,7 +6,7 @@ import numpy as np
 import numba as nb
 
 from astromodels import Parameter, Uniform_prior
-from polpy.polresponse import PolarResponse
+from polpy.polresponse import PolResponse
 from threeML import PluginPrototype
 from threeML.io.plotting.step_plot import step_plot
 from threeML.utils.binner import Rebinner
