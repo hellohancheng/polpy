@@ -40,35 +40,6 @@ class PolarLike(PluginPrototype):
         :param verbose:
 
         """
-
-        # if we pass a string, there may be multiple time intervals
-        # saved so we must specify a time interval
-
-        if isinstance(observation, str):
-            assert interval_number is not None, 'must specify an interval number'
-
-            # this is a file
-            read_file = ModulationCurveFile.read(observation)
-
-            # create the bmc
-            observation = read_file.to_binned_modulation_curve(
-                interval=interval_number)
-
-        # the same applies for the background
-        if isinstance(background, str):
-            assert interval_number is not None, 'must specify an interval number'
-
-            # this is a file
-            read_file = ModulationCurveFile.read(background)
-
-            background = read_file.to_binned_modulation_curve(
-                interval=interval_number)
-
-        assert isinstance(
-            observation, BinnedModulationCurve), 'The observation must be a BinnedModulationCurve'
-        assert isinstance(
-            background, BinnedModulationCurve), 'The observation must be a BinnedModulationCurve'
-
         # attach the required variables
 
         self._observation = observation
