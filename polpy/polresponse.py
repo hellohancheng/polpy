@@ -105,13 +105,13 @@ class PolResponse(object):
 
             # finally we attach all of this to the class
 
-            self_interpolators = all_interp
+            self.interpolators = all_interp
 
             self.ene_lo = ene_lo
             self.ene_hi = ene_hi
             self.energy_mid = energy
 
-            self.n_scatter_bins = len(bin_center)
+            self.n_scattering_bins = len(bin_center)
             self.scattering_bins = bin_center
             self.scattering_bins_lo = bins[:-1]
             self.scattering_bins_hi = bins[1:]            

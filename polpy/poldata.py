@@ -78,6 +78,7 @@ class PolData(object):
 
         # bin the ADC channels
         self.pha = np.digitize(pha, ebounds)
+        self.n_channels = ebounds.size - 1
 
         # bin the scattering_angles
 
@@ -94,8 +95,6 @@ class PolData(object):
             self.n_channels= len(self.rsp.ebounds) -1
 
         else:
-            self.n_channels = 0
-            self.n_scattering_bins=0
             self.scattering_edges = None
             self.scattering_angles = None
 
