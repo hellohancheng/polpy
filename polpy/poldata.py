@@ -5,7 +5,7 @@ from astropy.io import fits
 
 class PolData(object):
 
-    def __init__(self, polevents, specrsp=None, polrsp=None, reference_time=0.):
+    def __init__(self, polevents, specrsp=None, polrsp=None, reference_time=0.0):
         """
         container class that converts raw POLAR fits data into useful python
         variables
@@ -32,7 +32,7 @@ class PolData(object):
 
             # build the POLAR response
             mc_energies = np.append(mc_low, mc_high[-1])
-            self._rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
+            self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
 
         with fits.open(polevents) as hdu_evt:
 
@@ -43,8 +43,8 @@ class PolData(object):
             # less than zero
             
             # Extract mission and instrument info
-            self._mission = hdu_evt['POLEVENTS'].header['TELESCOP']
-            self._instrument = hdu_evt['POLEVENTS'].header['INSTRUME']
+            self.mission = hdu_evt['POLEVENTS'].header['TELESCOP']
+            self.instrument = hdu_evt['POLEVENTS'].header['INSTRUME']
 
             pha = hdu_evt['POLEVENTS'].data.field('ENERGY')
 
@@ -57,10 +57,10 @@ class PolData(object):
             pha = pha[idx2 & idx]
 
             # get the dead time fraction
-            self._dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx & idx2]
+            self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx & idx2]
 
             # get the arrival time, in SECOND
-            self._time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx & idx2] - reference_time
+            self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx & idx2] - reference_time
 
             # digitize the ADC channels into bins
             # these bins are preliminary
@@ -72,12 +72,12 @@ class PolData(object):
             # clear the bad scattering angles
             idx = scattering_angles != -1
 
-            self._scattering_angle_time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx] - reference_time
-            self._scattering_angle_dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx]
-            self._scattering_angles = scattering_angles[idx]
+            self.scattering_angle_time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx] - reference_time
+            self.scattering_angle_dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx]
+            self.scattering_angles = scattering_angles[idx]
 
         # bin the ADC channels
-        self._binned_pha = np.digitize(pha, ebounds)
+        self.pha = np.digitize(pha, ebounds)
 
         # bin the scattering_angles
 
@@ -88,10 +88,14 @@ class PolData(object):
                 samax = hdu_pol['SABOUNDS'].data.field('SA_MAX')
                 scatter_bounds = np.append(samin, samax[-1])
 
-            self._scattering_bins = scatter_bounds
-            self._binned_scattering_angles = np.digitize(self._scattering_angles, scatter_bounds)
+            self.scattering_edges = scatter_bounds
+            self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
+            self.n_scattering_bins= len(self.scattering_edges) - 1
+            self.n_channels= len(self.rsp.ebounds) -1
 
         else:
+            self.n_channels = 0
+            self.n_scattering_bins=0
+            self.scattering_edges = None
+            self.scattering_angles = None
 
-            self._scattering_bins = None
-            self._binned_scattering_angles = None
