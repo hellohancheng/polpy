@@ -91,15 +91,15 @@ class PolarizationLike(PluginPrototype):
         # we can either attach or build a response
 
         assert isinstance(response, str) or isinstance(
-            response, PolarResponse), 'The response must be a file name or a PolarResponse'
+            response, PolResponse), 'The response must be a file name or a PolarResponse'
 
-        if isinstance(response, PolarResponse):
+        if isinstance(response, PolResponse):
 
             self._response = response
 
         else:
 
-            self._response = PolarResponse(response)
+            self._response = PolResponse(response)
 
         # attach the interpolators to the
 
