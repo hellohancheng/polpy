@@ -20,24 +20,25 @@ class PolData(object):
         :param reference_time: reference time of the events (in SECOND)
 
         """
+        ebounds=None
+        if specrsp is not None:
+            with fits.open(specrsp) as hdu_spec:
+                # This gets the spectral response
+                mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
+                mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
+                ebounds = np.append(mc_low, mc_high[-1])
+                matrix = hdu_spec['MATRIX'].data.field('MATRIX')
+                matrix = matrix.transpose()
 
-        with fits.open(specrsp) as hdu_spec:
-
-            # This gets the spectral response
-            mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
-            mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
-            ebounds = np.append(mc_low, mc_high[-1])
-            matrix = hdu_spec['MATRIX'].data.field('MATRIX')
-            matrix = matrix.transpose()
-
-            # build the POLAR response
-            mc_energies = np.append(mc_low, mc_high[-1])
-            self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
+                # build the POLAR response
+                mc_energies = np.append(mc_low, mc_high[-1])
+                self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
+        else:
+            pass
 
         with fits.open(polevents) as hdu_evt:
 
             # open the event file
-
             # extract the pedestal corrected ADC channels
             # which are non-integer and possibly
             # less than zero
@@ -52,8 +53,11 @@ class PolData(object):
             idx = pha >= 0
             #pha = pha[idx]
 
-            idx2 = (pha <= ebounds.max()) & (pha >= ebounds.min())
-
+            if ebounds is not None:
+                idx2 = (pha <= ebounds.max()) & (pha >= ebounds.min())
+            else:
+                idx2 = idx
+    
             pha = pha[idx2 & idx]
 
             # get the dead time fraction
@@ -97,4 +101,3 @@ class PolData(object):
         else:
             self.scattering_edges = None
             self.scattering_angles = None
-
