@@ -5,7 +5,7 @@ from astropy.io import fits
 
 class PolData(object):
 
-    def __init__(self, polevents, specrsp=None, polrsp=None, reference_time=0.0):
+    def __init__(self, polevents, polrsp, specrsp=None, reference_time=0.0):
         """
         container class that converts raw POLAR fits data into useful python
         variables
@@ -20,83 +20,65 @@ class PolData(object):
         :param reference_time: reference time of the events (in SECOND)
 
         """
-        ebounds=None
-        if specrsp is not None:
-            with fits.open(specrsp) as hdu_spec:
-                # This gets the spectral response
-                mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
-                mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
-                ebounds = np.append(mc_low, mc_high[-1])
-                matrix = hdu_spec['MATRIX'].data.field('MATRIX')
-                matrix = matrix.transpose()
+        if specrsp:
+            hdu_spec = fits.open(specrsp)
+            # This gets the spectral response
+            mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
+            mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
+            ebounds = np.append(mc_low, mc_high[-1])
+            matrix = hdu_spec['MATRIX'].data.field('MATRIX')
+            matrix = matrix.transpose()
 
-                # build the POLAR response
-                mc_energies = np.append(mc_low, mc_high[-1])
-                self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
-        else:
-            pass
+            # build the POLAR response
+            mc_energies = np.append(mc_low, mc_high[-1])
+            self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
 
-        with fits.open(polevents) as hdu_evt:
+        # open the event file
+        hdu_evt = fits.open(polevents)
+        
+        # Extract mission and instrument info
+        self.mission = hdu_evt['POLEVENTS'].header['TELESCOP']
+        self.instrument = hdu_evt['POLEVENTS'].header['INSTRUME']
+        pha = hdu_evt['POLEVENTS'].data.field('ENERGY')
 
-            # open the event file
-            # extract the pedestal corrected ADC channels
-            # which are non-integer and possibly
-            # less than zero
+        # non-zero ADC channels and correct energy range. Also bin the pha if using spectral response
+        if ebounds in locals():  # check if ebounds was defined
+            pha_mask = (pha >= 0) & (pha <= ebounds.max()) & (pha >= ebounds.min())
             
-            # Extract mission and instrument info
-            self.mission = hdu_evt['POLEVENTS'].header['TELESCOP']
-            self.instrument = hdu_evt['POLEVENTS'].header['INSTRUME']
+            # bin the ADC channels
+            self.pha = np.digitize(pha[pha_mask], ebounds)
+            self.n_channels= len(self.rsp.ebounds) - 1
+        else:
+            pha_mask = (pha >= 0)
+        
+        # get the dead time fraction
+        self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[pha_mask]
 
-            pha = hdu_evt['POLEVENTS'].data.field('ENERGY')
+        # get the arrival time, in SECOND
+        self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[pha_mask] - reference_time
 
-            # non-zero ADC channels are invalid
-            idx = pha >= 0
-            #pha = pha[idx]
+        # now do the scattering angles
+        scattering_angles = hdu_evt['POLEVENTS'].data.field('SA')[pha_mask]
 
-            if ebounds is not None:
-                idx2 = (pha <= ebounds.max()) & (pha >= ebounds.min())
-            else:
-                idx2 = idx
-    
-            pha = pha[idx2 & idx]
+        # clear the bad scattering angles
+        scat_angle_mask = scattering_angles != -1
 
-            # get the dead time fraction
-            self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx & idx2]
-
-            # get the arrival time, in SECOND
-            self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx & idx2] - reference_time
-
-            # digitize the ADC channels into bins
-            # these bins are preliminary
-
-            # now do the scattering angles
-
-            scattering_angles = hdu_evt['POLEVENTS'].data.field('SA')
-
-            # clear the bad scattering angles
-            idx = scattering_angles != -1
-
-            self.scattering_angle_time = (hdu_evt['POLEVENTS'].data.field('TIME'))[idx] - reference_time
-            self.scattering_angle_dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[idx]
-            self.scattering_angles = scattering_angles[idx]
-
-        # bin the ADC channels
-        #self.pha = np.digitize(pha, ebounds)
+        self.scattering_angle_time = (hdu_evt['POLEVENTS'].data.field('TIME'))[scat_angle_mask] - reference_time
+        self.scattering_angle_dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[scat_angle_mask]
+        self.scattering_angles = scattering_angles[scat_angle_mask]
 
         # bin the scattering_angles
-
         if polrsp is not None:
 
-            with fits.open(polrsp) as hdu_pol:
-                samin = hdu_pol['SABOUNDS'].data.field('SA_MIN')
-                samax = hdu_pol['SABOUNDS'].data.field('SA_MAX')
-                scatter_bounds = np.append(samin, samax[-1])
+            hdu_polrsp = fits.open(polrsp)
+            samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
+            samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
+            scatter_bounds = np.append(samin, samax[-1])
 
             self.scattering_edges = scatter_bounds
             self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
             self.n_scattering_bins= len(self.scattering_edges) - 1
-            if ebounds is not None:
-                self.n_channels= len(self.rsp.ebounds) -1
+
         else:
             self.scattering_edges = None
             self.scattering_angles = None
