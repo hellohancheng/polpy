@@ -19,8 +19,8 @@ trigger_time = 1484431269.5000
 #polar = TimeSeriesBuilder.from_polar_spectrum(name='polar_spec',
                                     #           polar_hdf5_file='polar_170114A_rsp.h5',
                                     #           trigger_time=trigger_time)
-polar = TimeSeriesBuilder.from_pol_spectrum(name='polar_spec', polevents='/home/sujay/local/data/3ml-test/test_events_170114A.fits',
-                                              specrsp='/home/sujay/local/data/3ml-test/test_RMF_ARF_170114A.fits',
+polar = TimeSeriesBuilder.from_pol_spectrum(name='polar_spec', polevents='/home/polpy/polpy_test/polpy/data/POLAR_170114A.pevt',
+                                              specrsp='/home/polpy/polpy_test/polpy/data/POLAR_RMF_ARF_170114A.fits',
                                                trigger_time=trigger_time)
 
 
@@ -37,9 +37,9 @@ polar_spec.use_effective_area_correction(0.7, 1.3)
 
 #Just do the spectral fit first
 
-polar_polarization_ts = TimeSeriesBuilder.from_pol_polarization(name='polar_pol', polevents='/home/sujay/local/data/3ml-test/test_events_170114A.fits',
-                                              specrsp='/home/sujay/local/data/3ml-test/test_RMF_ARF_170114A.fits',
-                                              polrsp='/home/sujay/local/data/3ml-test/test_porsp_170114A.prsp',
+polar_polarization_ts = TimeSeriesBuilder.from_pol_polarization(name='polar_pol', polevents='/home/polpy/polpy_test/polpy/data/POLAR_170114A.pevt',
+                                              specrsp='/home/polpy/polpy_test/polpy/data/POLAR_RMF_ARF_170114A.fits',
+                                              polrsp='/home/polpy/polpy_test/polpy/data/POLAR_170114A.prsp',
                                                trigger_time=trigger_time)
 
 
