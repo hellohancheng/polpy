@@ -36,17 +36,19 @@ class FastGridInterpolate(object):
 
 class PolResponse(object):
 
-    def __init__(self, response_file):
+    def __init__(self, response_file, pa_offset):
         """
         Construct the polarisation response from the mission specific polarisation response file.
-
+:w
         :param response_file: Polarisation response file in the defined format (.prsp)
+        :param pa_offset: Offset to be added to convert templates from LTP to J2000
         :returns: 
         :rtype: 
 
         """
         print(response_file)
         self._rsp_file = response_file
+        self._pa_offset = pa_offset
 
         # pre interpolate the response for fitting
 
@@ -68,6 +70,7 @@ class PolResponse(object):
             energy = (ene_lo + ene_hi) / 2.
 
             pol_ang = np.array(hdu_pol['INPAVALS'].data.field('PA_IN'), dtype=np.float64)
+            pol_ang = (pol_ang + self._pa_offset) % 180
 
             # we have 100% pol and 0% pol matrix in the prsp file
             pol_deg = np.array([0., 100.], dtype=np.float64)

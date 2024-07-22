@@ -1,7 +1,8 @@
 import numpy as np
 from threeML.utils.OGIP.response import InstrumentResponse
 from astropy.io import fits
-
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 class PolData(object):
 
@@ -20,8 +21,14 @@ class PolData(object):
         :param reference_time: reference time of the events (in SECOND)
 
         """
-        if specrsp:
-            hdu_spec = fits.open(specrsp)
+        
+        # define global vars
+        self.polevents = polevents
+        self.specrsp = specrsp
+        self.polrsp = polrsp
+        
+        if self.specrsp:        
+            hdu_spec = fits.open(self.specrsp)
             # This gets the spectral response
             mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
             mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
@@ -34,7 +41,7 @@ class PolData(object):
             self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
 
         # open the event file
-        hdu_evt = fits.open(polevents)
+        hdu_evt = fits.open(self.polevents)
         
         # Extract mission and instrument info
         self.mission = hdu_evt['POLEVENTS'].header['TELESCOP']
@@ -68,9 +75,9 @@ class PolData(object):
         self.scattering_angles = scattering_angles[scat_angle_mask]
 
         # bin the scattering_angles
-        if polrsp is not None:
+        if self.polrsp is not None:
 
-            hdu_polrsp = fits.open(polrsp)
+            hdu_polrsp = fits.open(self.polrsp)
             samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
             samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
             scatter_bounds = np.append(samin, samax[-1])
@@ -82,3 +89,72 @@ class PolData(object):
         else:
             self.scattering_edges = None
             self.scattering_angles = None
+
+
+    def get_pa_offset(self) -> float:
+        """ Compute the polarisation angle offset between local tangent frame and J2000 frame for
+        *this* instrument.
+        
+        see docs for frame defn (add a link to docs)
+
+        Returns:
+            float: Polarisation angle offset between J2000 and local tangent frame.
+        """
+
+        # get the two transformation matrices
+        R_IRF_J2000 = self._get_IRF_J2000_transform()
+        R_LTP_XYZ = self._get_LTP_IRF_transform()
+        
+        R_LTP_J2000 = np.matmul(R_IRF_J2000, R_LTP_XYZ)
+        
+        # Compute the PA offset. This is basically azimuth of LTP Z-axis in J2000
+        Z_LTP_J2000 = np.matmul(R_LTP_J2000, [0, 0, 1])
+        psi = np.arctan2(Z_LTP_J2000[1], Z_LTP_J2000[0])
+
+        # Return always between 0 to 360
+        if psi < 0:
+            psi += 2*np.pi
+
+        return np.rad2deg(psi) % 180
+        
+    
+    def _get_IRF_J2000_transform(self) -> np.ndarray:
+        """ Returns the transformation matrix from instrument reference frame (IRF) to 
+        J2000 frame.
+        
+        see docs for frame defn (add a link to docs)
+
+        Returns:
+            np.ndarray: Instrument to J2000 transformation matrix
+        """
+
+        # Matrix to go from XYZ to J2000 frame
+        return np.array([self._X.get_xyz().value, self._Y.get_xyz().value, self._Z.get_xyz().value]).T
+
+
+    def _get_LTP_IRF_transform(self) -> np.ndarray:
+        """ Returns the transformation matrix from the local tangent plane (LTP) frame to 
+        instrument reference frame (IRF).
+        
+        see docs for frame defn (add a link to docs)
+
+        Returns:
+            np.ndarray: LTP to IRF transformation matrix
+        """
+        
+        # Compute source theta, phi
+        # Compute the projection on XYZ
+        ux = self._X.dot(self._S).value
+        uy = self._Y.dot(self._S).value
+        uz = self._Z.dot(self._S).value
+        
+        # Compute the theta,phi
+        theta = np.arccos(uz)
+        phi = np.arctan2(uy, ux)
+        if phi < 0:
+            phi += 2*np.pi
+
+        # Matrix to go from NED to XYZ
+        return np.array([[-np.cos(theta) * np.cos(phi), -np.sin(phi), -np.sin(theta) * np.cos(phi)],
+                              [-np.cos(theta) * np.sin(phi), np.cos(phi), -np.sin(theta) * np.sin(phi)],
+                              [np.sin(phi), 0, -np.cos(theta)]])

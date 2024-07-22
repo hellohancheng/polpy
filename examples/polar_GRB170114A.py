@@ -19,8 +19,8 @@ trigger_time = 1484431269.5000
 #polar = TimeSeriesBuilder.from_polar_spectrum(name='polar_spec',
                                     #           polar_hdf5_file='polar_170114A_rsp.h5',
                                     #           trigger_time=trigger_time)
-polar = TimeSeriesBuilder.from_pol_spectrum(name='polar_spec', polevents='/home/polpy/polpy_test/polpy/data/POLAR_170114A.pevt',
-                                              specrsp='/home/polpy/polpy_test/polpy/data/POLAR_RMF_ARF_170114A.fits',
+polar = TimeSeriesBuilder.from_pol_spectrum(name='polar_spec', polevents='/home/sujay/local/data/3ml-test/POLAR_170114A.pevt',
+                                              specrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.rmfarf',
                                                trigger_time=trigger_time)
 
 
@@ -37,9 +37,9 @@ polar_spec.use_effective_area_correction(0.7, 1.3)
 
 #Just do the spectral fit first
 
-polar_polarization_ts = TimeSeriesBuilder.from_pol_polarization(name='polar_pol', polevents='/home/polpy/polpy_test/polpy/data/POLAR_170114A.pevt',
-                                              specrsp='/home/polpy/polpy_test/polpy/data/POLAR_RMF_ARF_170114A.fits',
-                                              polrsp='/home/polpy/polpy_test/polpy/data/POLAR_170114A.prsp',
+polar_polarization_ts = TimeSeriesBuilder.from_pol_polarization(name='polar_pol', polevents='/home/sujay/local/data/3ml-test/POLAR_170114A.pevt',
+                                              specrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.rmfarf',
+                                              polrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.prsp',
                                                trigger_time=trigger_time)
 
 
@@ -56,6 +56,7 @@ gbm_cat = FermiGBMBurstCatalog()
 gbm_cat.query_sources('GRB170114917')
 
 dl = download_GBM_trigger_data('bn170114917',detectors=['n1','n5','n8','b0'])
+# dl = download_GBM_trigger_data('bn170114917',detectors=['n1'])
 
 n1 = TimeSeriesBuilder.from_gbm_tte('n1',dl['n1']['tte'],dl['n1']['rsp'],verbose=False)
 n5 = TimeSeriesBuilder.from_gbm_tte('n5',dl['n5']['tte'],dl['n5']['rsp'],verbose=False)
@@ -133,8 +134,8 @@ sc =SpectralComponent('synch', band, lp)
 ps = PointSource('polar_GRB',0,0,components=[sc])
 
 model = Model(ps)
-#datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
-datalist = DataList(polar_data, polar_spec, n1_spec)
+datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
+#datalist = DataList(polar_data, polar_spec, n1_spec)
 
 
 
