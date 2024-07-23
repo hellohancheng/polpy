@@ -5,7 +5,7 @@ from astropy.io import fits
 
 class PolData(object):
 
-    def __init__(self, polevents, polrsp, specrsp=None, reference_time=0.0):
+    def __init__(self, polevents,polrsp=None, specrsp=None,reference_time=0.0):
         """
         container class that converts raw POLAR fits data into useful python
         variables
@@ -20,19 +20,22 @@ class PolData(object):
         :param reference_time: reference time of the events (in SECOND)
 
         """
-        if specrsp:
-            hdu_spec = fits.open(specrsp)
-            # This gets the spectral response
-            mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
-            mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
-            ebounds = np.append(mc_low, mc_high[-1])
-            matrix = hdu_spec['MATRIX'].data.field('MATRIX')
-            matrix = matrix.transpose()
+        ebounds=None
+        if specrsp is not None:
+                hdu_spec = fits.open(specrsp)   
+                # This gets the spectral response
+                mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
+                mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
+                ebounds = np.append(mc_low, mc_high[-1])
+                matrix = hdu_spec['MATRIX'].data.field('MATRIX')
+                matrix = matrix.transpose()
 
-            # build the POLAR response
-            mc_energies = np.append(mc_low, mc_high[-1])
-            self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
-
+                # build the POLAR response
+                mc_energies = np.append(mc_low, mc_high[-1])
+                self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
+        else :
+            pass
+    
         # open the event file
         hdu_evt = fits.open(polevents)
         
@@ -69,15 +72,14 @@ class PolData(object):
 
         # bin the scattering_angles
         if polrsp is not None:
+                hdu_polrsp=fits.open(polrsp)
+                samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
+                samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
+                scatter_bounds = np.append(samin, samax[-1])
 
-            hdu_polrsp = fits.open(polrsp)
-            samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
-            samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
-            scatter_bounds = np.append(samin, samax[-1])
-
-            self.scattering_edges = scatter_bounds
-            self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
-            self.n_scattering_bins= len(self.scattering_edges) - 1
+                self.scattering_edges = scatter_bounds
+                self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
+                self.n_scattering_bins= len(self.scattering_edges) - 1
 
         else:
             self.scattering_edges = None
