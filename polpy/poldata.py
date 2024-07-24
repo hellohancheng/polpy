@@ -13,10 +13,10 @@ class PolData(object):
 
         This can build both the polarimetric and spectral data
         
-        :param poevents: path to polarisation data event file
-        :param specrsp: path to spectral responce file
-        :param polrsp: path to polarisation responce file
-                             it will use SABOUNDS to bin you SA data in 'polar_events'
+        :param polevents: path to polarisation data event file
+        :param specrsp: path to spectral response file
+        :param polrsp: path to polarisation response file
+                             it will use SABOUNDS to bin your SA data in 'polevents'
                              if 'NONE', we assume 'SA' data is already binned
         :param reference_time: reference time of the events (in SECOND)
 
@@ -27,18 +27,18 @@ class PolData(object):
         self.specrsp = specrsp
         self.polrsp = polrsp
         
-        if self.specrsp:        
-            hdu_spec = fits.open(self.specrsp)
-            # This gets the spectral response
-            mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
-            mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
-            ebounds = np.append(mc_low, mc_high[-1])
-            matrix = hdu_spec['MATRIX'].data.field('MATRIX')
-            matrix = matrix.transpose()
+        if self.specrsp is not None:     
+            with fits.open(self.specrsp) as hdu_spec:
+                # This gets the spectral response
+                mc_low = hdu_spec['MATRIX'].data.field('ENERG_LO')
+                mc_high = hdu_spec['MATRIX'].data.field('ENERG_HI')
+                ebounds = np.append(mc_low, mc_high[-1])
+                matrix = hdu_spec['MATRIX'].data.field('MATRIX')
+                matrix = matrix.transpose()
 
-            # build the spectral response
-            mc_energies = np.append(mc_low, mc_high[-1])
-            self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
+                # build the spectral response
+                mc_energies = np.append(mc_low, mc_high[-1])
+                self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
     
         # open the event file
         hdu_evt = fits.open(self.polevents)
@@ -52,7 +52,7 @@ class PolData(object):
         if 'ebounds' in locals():  # check if ebounds was defined
             pha_mask1 = pha >= 0
             pha_mask2 = (pha <= ebounds.max()) & (pha >= ebounds.min())
-            
+            pha_mask= pha_mask1 & pha_mask2
             # bin the ADC channels
             self.pha = np.digitize(pha[pha_mask1 & pha_mask2], ebounds)
             self.n_channels= len(self.rsp.ebounds) - 1
@@ -60,10 +60,10 @@ class PolData(object):
             pha_mask = (pha >= 0)
         
         # get the dead time fraction
-        self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[pha_mask1 & pha_mask2]
+        self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[pha_mask]
 
         # get the arrival time, in SECOND
-        self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[pha_mask1 & pha_mask2] - reference_time
+        self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[pha_mask] - reference_time
 
         # now do the scattering angles
         
@@ -97,14 +97,15 @@ class PolData(object):
 
         # bin the scattering_angles
         if self.polrsp is not None:
-            hdu_polrsp = fits.open(self.polrsp)
-            samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
-            samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
-            scatter_bounds = np.append(samin, samax[-1])
+            with fits.open(self.polrsp) as hdu_polrsp:
+                example=hdu_polrsp['INEBOUNDS'].data.field('ENERG_LO')    
+                samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
+                samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
+                scatter_bounds = np.append(samin, samax[-1])
 
-            self.scattering_edges = scatter_bounds
-            self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
-            self.n_scattering_bins= len(self.scattering_edges) - 1
+                self.scattering_edges = scatter_bounds
+                self.scattering_angles = np.digitize(self.scattering_angles, scatter_bounds)
+                self.n_scattering_bins= len(self.scattering_edges) - 1
 
         else:
             self.scattering_edges = None
