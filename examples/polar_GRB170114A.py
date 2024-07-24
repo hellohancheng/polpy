@@ -1,28 +1,26 @@
-#from mpi4py import MPI
+#!/usr/bin/env python
 
+#from mpi4py import MPI
+from pathlib import Path
 import time
 #rank = comm.Get_rank()
 import numpy as np
 #import pymultinest
 import warnings
 
-
 from threeML import *
 
-# set band function
-
-#### data
-
+# data and responses
+data_path = Path(__file__).parent.parent.joinpath("data")
+polevents = data_path.joinpath("POLAR_170114A.pevt")
+polrsp = data_path.joinpath("POLAR_170114A.prsp")
+specrsp = data_path.joinpath("POLAR_170114A.rmfarf")
 
 trigger_time = 1484431269.5000
 
-#polar = TimeSeriesBuilder.from_polar_spectrum(name='polar_spec',
-                                    #           polar_hdf5_file='polar_170114A_rsp.h5',
-                                    #           trigger_time=trigger_time)
-polar = TimeSeriesBuilder.from_pol_spectrum(name='polar_spec', polevents='/home/sujay/local/data/3ml-test/POLAR_170114A.pevt',
-                                              specrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.rmfarf',
-                                               trigger_time=trigger_time)
-
+# spectral
+polar = TimeSeriesBuilder.from_pol_spectrum('polar_spec', polevents.as_posix(), specrsp.as_posix(),
+                                            trigger_time=trigger_time)
 
 
 #threeML_config['lightcurve']['lightcurve color'] = '#07AE44'
@@ -35,12 +33,9 @@ polar_spec.set_active_measurements('30-750')
 
 polar_spec.use_effective_area_correction(0.7, 1.3)
 
-#Just do the spectral fit first
-
-polar_polarization_ts = TimeSeriesBuilder.from_pol_polarization(name='polar_pol', polevents='/home/sujay/local/data/3ml-test/POLAR_170114A.pevt',
-                                              specrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.rmfarf',
-                                              polrsp='/home/sujay/local/data/3ml-test/POLAR_170114A.prsp',
-                                               trigger_time=trigger_time)
+# polarisation 
+polar_polarization_ts = TimeSeriesBuilder.from_polarization('polar_pol', polevents.as_posix(), polrsp.as_posix(),
+                                              specrsp, trigger_time=trigger_time)
 
 
 polar_polarization_ts.set_background_interval('-35--10','25-75')
@@ -56,7 +51,6 @@ gbm_cat = FermiGBMBurstCatalog()
 gbm_cat.query_sources('GRB170114917')
 
 dl = download_GBM_trigger_data('bn170114917',detectors=['n1','n5','n8','b0'])
-# dl = download_GBM_trigger_data('bn170114917',detectors=['n1'])
 
 n1 = TimeSeriesBuilder.from_gbm_tte('n1',dl['n1']['tte'],dl['n1']['rsp'],verbose=False)
 n5 = TimeSeriesBuilder.from_gbm_tte('n5',dl['n5']['tte'],dl['n5']['rsp'],verbose=False)
@@ -89,16 +83,10 @@ n8_spec = n8.to_spectrumlike()
 n8_spec.set_active_measurements('8.1-510')
 b0_spec = b0.to_spectrumlike()
 b0_spec.set_active_measurements('300-35000')
+
 #Just do the spectral fit first
-
-
 # modeling setup
-
-
 band = Band()
-
-
-
 band.xp.prior = Log_normal(mu=np.log(300),sigma=np.log(100))
 band.xp.bounds = (None, None)
 
@@ -112,35 +100,20 @@ band.beta.bounds = (None, -1.5)
 band.beta.prior = Truncated_gaussian(mu=-3.,sigma=0.6, lower_bound=-5, upper_bound=-1.5)
 
 # pollack setup
-
-
 lp = LinearPolarization(10,10)
 lp.angle.set_uninformative_prior(Uniform_prior)
 lp.degree.prior = Uniform_prior(lower_bound=0.1, upper_bound=100.0)
-#lp.degree.prior = Log_uniform_prior(lower_bound=1E-10,
- #                                       upper_bound=100)
-#lp.degree.prior = Truncated_gaussian(mu=20,sigma=30, lower_bound=0, upper_bound=100)
 lp.degree.value=0.
 lp.angle.value=10
 
-
-
-
-
-
-
 sc =SpectralComponent('synch', band, lp)
-
 ps = PointSource('polar_GRB',0,0,components=[sc])
 
 model = Model(ps)
-datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
-#datalist = DataList(polar_data, polar_spec, n1_spec)
-
-
+#datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
+datalist = DataList(polar_data, polar_spec, n1_spec)
 
 # BAYES
-
 bayes = BayesianAnalysis(model,datalist)
 bayes.set_sampler("multinest")
 wrapped = [0] * len(model.free_parameters)
@@ -153,15 +126,11 @@ bayes.sampler.setup(n_live_points=100,
                            wrapped_params=wrapped,
                            chain_name='chains/synch_p2')
 
-
 bayes.sample()
 
 #if rank == 0:
-
 bayes.results.write_to("fit_results.fits", overwrite=True)
-
 bayes.restore_median_fit()
 fig = display_spectrum_model_counts(bayes)
-
     
 fig.savefig("count_spec.pdf", bbox_inches="tight")

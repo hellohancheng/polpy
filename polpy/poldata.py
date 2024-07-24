@@ -6,7 +6,7 @@ import astropy.units as u
 
 class PolData(object):
 
-    def __init__(self, polevents,polrsp=None, specrsp=None,reference_time=0.0):
+    def __init__(self, polevents, polrsp, specrsp=None, reference_time=0.0):
         """
         container class that converts raw POLAR fits data into useful python
         variables
@@ -36,7 +36,7 @@ class PolData(object):
             matrix = hdu_spec['MATRIX'].data.field('MATRIX')
             matrix = matrix.transpose()
 
-                # build the POLAR response
+            # build the spectral response
             mc_energies = np.append(mc_low, mc_high[-1])
             self.rsp = InstrumentResponse(matrix=matrix, ebounds=ebounds, monte_carlo_energies=mc_energies)
     
@@ -49,23 +49,26 @@ class PolData(object):
         pha = hdu_evt['POLEVENTS'].data.field('ENERGY')
 
         # non-zero ADC channels and correct energy range. Also bin the pha if using spectral response
-        if ebounds in locals():  # check if ebounds was defined
-            pha_mask = (pha >= 0) & (pha <= ebounds.max()) & (pha >= ebounds.min())
+        if 'ebounds' in locals():  # check if ebounds was defined
+            pha_mask1 = pha >= 0
+            pha_mask2 = (pha <= ebounds.max()) & (pha >= ebounds.min())
             
             # bin the ADC channels
-            self.pha = np.digitize(pha[pha_mask], ebounds)
+            self.pha = np.digitize(pha[pha_mask1 & pha_mask2], ebounds)
             self.n_channels= len(self.rsp.ebounds) - 1
         else:
             pha_mask = (pha >= 0)
         
         # get the dead time fraction
-        self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[pha_mask]
+        self.dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[pha_mask1 & pha_mask2]
 
         # get the arrival time, in SECOND
-        self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[pha_mask] - reference_time
+        self.time = (hdu_evt['POLEVENTS'].data.field('TIME'))[pha_mask1 & pha_mask2] - reference_time
 
         # now do the scattering angles
-        scattering_angles = hdu_evt['POLEVENTS'].data.field('SA')[pha_mask]
+        
+        # there is some issue with applying the pha mask to this. Not consistent. To be checked !!
+        scattering_angles = hdu_evt['POLEVENTS'].data.field('SA')
 
         # clear the bad scattering angles
         scat_angle_mask = scattering_angles != -1
@@ -73,10 +76,27 @@ class PolData(object):
         self.scattering_angle_time = (hdu_evt['POLEVENTS'].data.field('TIME'))[scat_angle_mask] - reference_time
         self.scattering_angle_dead_time_fraction = (hdu_evt['POLEVENTS'].data.field('DEADFRAC'))[scat_angle_mask]
         self.scattering_angles = scattering_angles[scat_angle_mask]
+        
+        # read the instrument axis and source direction coordinates
+        RA_X = hdu_evt['POLEVENTS'].header['RAX']*u.deg
+        Dec_X = hdu_evt['POLEVENTS'].header['DECX']*u.deg
+        RA_Z = hdu_evt['POLEVENTS'].header['RAZ']*u.deg
+        Dec_Z = hdu_evt['POLEVENTS'].header['DECZ']*u.deg
+        RA_S = hdu_evt['POLEVENTS'].header['RAGRB']*u.deg
+        Dec_S = hdu_evt['POLEVENTS'].header['DECGRB']*u.deg
+        
+        # define the instrument direction vectors
+        self._X = SkyCoord(RA_X, Dec_X, frame='icrs', obstime='J2000').cartesian
+        self._Z = SkyCoord(RA_Z, Dec_Z, frame='icrs', obstime='J2000').cartesian
+        
+        # get the third axis
+        self._Y = self._Z.cross(self._X)
+        
+        # define the source axis vector
+        self._S = SkyCoord(RA_S, Dec_S, frame='icrs', obstime='J2000').cartesian
 
         # bin the scattering_angles
         if self.polrsp is not None:
-
             hdu_polrsp = fits.open(self.polrsp)
             samin = hdu_polrsp['SABOUNDS'].data.field('SA_MIN')
             samax = hdu_polrsp['SABOUNDS'].data.field('SA_MAX')
@@ -89,6 +109,8 @@ class PolData(object):
         else:
             self.scattering_edges = None
             self.scattering_angles = None
+            
+            
 
 
     def get_pa_offset(self) -> float:
