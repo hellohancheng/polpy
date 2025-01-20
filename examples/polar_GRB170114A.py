@@ -2,7 +2,6 @@
 
 #from mpi4py import MPI
 from pathlib import Path
-import time
 #rank = comm.Get_rank()
 import numpy as np
 #import pymultinest
@@ -34,21 +33,18 @@ polar_spec.set_active_measurements('30-750')
 polar_spec.use_effective_area_correction(0.7, 1.3)
 
 # polarisation 
-polar_polarization_ts = TimeSeriesBuilder.from_polarization('polar_pol', polevents.as_posix(), polrsp.as_posix(),
-                                              specrsp, trigger_time=trigger_time)
-
-
+polar_polarization_ts = TimeSeriesBuilder.from_polarization('polar_pol', polevents.as_posix(), specrsp, 
+                                                            polrsp.as_posix(), trigger_time=trigger_time)
+# Offset to be added to convert templates from LTP to J2000
+# we put zero for now
+pa_offset = 0. # [0, 180] in deg
 polar_polarization_ts.set_background_interval('-35--10','25-75')
 polar_polarization_ts.set_active_time_interval('-0.2-8.9')
-polar_data = polar_polarization_ts.to_polarizationlike()
+polar_data = polar_polarization_ts.to_polarizationlike(pa_offset=0.)
 
 polar_data.use_effective_area_correction(0.7, 1.5)
 
 
-
-gbm_cat = FermiGBMBurstCatalog()
-
-gbm_cat.query_sources('GRB170114917')
 
 dl = download_GBM_trigger_data('bn170114917',detectors=['n1','n5','n8','b0'])
 
@@ -110,8 +106,7 @@ sc =SpectralComponent('synch', band, lp)
 ps = PointSource('polar_GRB',0,0,components=[sc])
 
 model = Model(ps)
-#datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
-datalist = DataList(polar_data, polar_spec, n1_spec)
+datalist = DataList(polar_data, polar_spec,n1_spec,n5_spec,n8_spec,b0_spec)
 
 # BAYES
 bayes = BayesianAnalysis(model,datalist)
@@ -119,7 +114,7 @@ bayes.set_sampler("multinest")
 wrapped = [0] * len(model.free_parameters)
 wrapped[5] = 1
 
-bayes.sampler.setup(n_live_points=100,
+bayes.sampler.setup(n_live_points=1000,
                            resume = False,
                            importance_nested_sampling=False,
                            verbose=True,
@@ -131,6 +126,11 @@ bayes.sample()
 #if rank == 0:
 bayes.results.write_to("fit_results.fits", overwrite=True)
 bayes.restore_median_fit()
+
 fig = display_spectrum_model_counts(bayes)
-    
 fig.savefig("count_spec.pdf", bbox_inches="tight")
+
+polar_modulation_curve = polar_data.display(show_model=True)
+polar_modulation_curve.savefig("GRB170114A_polar_modulation_curve.png", bbox_inches="tight")
+polar_modulation_curve_minrate20= polar_data.display(show_model=True, min_rate=20)
+polar_modulation_curve_minrate20.savefig("GRB170114A_polar_modulation_curve_minrate20.png", bbox_inches="tight")

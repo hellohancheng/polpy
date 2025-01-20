@@ -180,4 +180,4 @@ class PolData(object):
         # Matrix to go from NED to XYZ
         return np.array([[-np.cos(theta) * np.cos(phi), -np.sin(phi), -np.sin(theta) * np.cos(phi)],
                               [-np.cos(theta) * np.sin(phi), np.cos(phi), -np.sin(theta) * np.sin(phi)],
-                              [np.sin(phi), 0, -np.cos(theta)]])
+                              [np.sin(theta), 0, -np.cos(theta)]])
